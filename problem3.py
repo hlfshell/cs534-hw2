@@ -123,7 +123,7 @@ def hill_climbing(problem):
             neighbors,
             key=lambda node: problem.value(node.state)
         )
-        if problem.value(neighbor.state) <= problem.value(current.state):
+        if problem.value(neighbor.state) >= problem.value(current.state):
             """Note that it is based on negative path cost method"""
             current.state = neighbor.state
         iterations -= 1
@@ -147,28 +147,40 @@ print("------------------")
 print ("3b")
 print("------------------")
 
-def genetic_algorithm(population, fitness_fn, ngen=1000, pmut=0.1):
+def genetic_algorithm(population, fitness_fn, ngen=1000, pmut=0.1, early_term=False):
     last_best = None
     last_best_count = 0
+    carryover = 5
+    population_size = len(population)
+    early_termination_repetition = 10
 
     for i in range(ngen):
-        population = [mutate(crossover(*select(2, population, fitness_fn)), pmut)
-                      for i in range(len(population))]
+        population.sort(key=fitness_fn)
+        new_population = population[0:carryover]
 
-        population.sort(key = fitness_fn)
+        while len(new_population) < population_size:
+            fitness_scores = [fitness_fn(x) for x in population]
+            a = random.choices(population, weights=fitness_scores)[0]
+            b = random.choices(population, weights=fitness_scores)[0]
+            child = mutate(crossover(a, b), pmut)
+            new_population.append(child)
+
+        
         fittest = population[0]
 
         # This is a form of early termination - if we find the optimal or
         # a great answer that isn't beaten in 3 generations, let's just
         # go with that and call it a day.
-        if last_best == fittest:
+        if last_best == fittest and early_term:
             last_best_count += 1
-            if last_best_count >= 3:
+            if last_best_count >= early_termination_repetition:
                 print("Early termination hit")
                 return fittest
         else:
             last_best = fittest
             last_best_count = 0
+        
+        population = new_population
 
     return population[0]
 
@@ -248,13 +260,23 @@ mutation_rate = 0.07
 population = init_population(max_population, all_cities)
 
 start = time()
-fittest = genetic_algorithm(population, fitness_fn, ngen=100, pmut=mutation_rate)
+fittest = genetic_algorithm(population, fitness_fn, pmut=mutation_rate)
 end = time()
 ga_duration = end - start
 
 print("Genetic Algorithm best result:")
 print(fittest)
 print(f"Fitness score: {fitness_fn(fittest)}")
+
+print("Now with early termination")
+start = time()
+fittest_early_term = genetic_algorithm(population, fitness_fn, pmut=mutation_rate, early_term=True)
+end = time()
+ga_early_term_duration = end - start
+
+print("Genetic Algorithm (w early term)best result:")
+print(fittest_early_term)
+print(f"Fitness score: {fitness_fn(fittest_early_term)}")
 
 
 print("------------------")
@@ -263,6 +285,8 @@ print("------------------")
 print("Comparing Genentic Algorithm and Hill Climbing approaches:")
 
 print(f"Genetic Alogirthm time taken: {ga_duration} seconds")
+print(f"Genetic Alogirthm (early term) time taken: {ga_early_term_duration} seconds")
 print(f"Hill Climbing time taken: {hill_duration} seconds")
 print(f"Fitness of genetic algorithm best: {fitness_fn(fittest)}")
+print(f"Fitness of genetic algorithm (early term) best: {fitness_fn(fittest_early_term)}")
 print(f"Fitness of hill climbing best: {fitness_fn(hill_solution)}")
